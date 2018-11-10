@@ -32,7 +32,7 @@ for s in np.argwhere(~over):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(25, 50)
+        self.fc1 = nn.Linear(2, 50)
         self.fc1.weight.data.normal_(0, 0.1)  # initialization
         self.out = nn.Linear(50, 4)
         self.out.weight.data.normal_(0, 0.1)  # initialization
@@ -75,9 +75,10 @@ class DQN(object):
 
         if np.random.rand() < epsilon:
             return avalible_actions[np.random.randint(len(avalible_actions))]
-        actions_value = self.eval_net.forward(s)
-        action = np.argmax([actions_value[x] for x in avalible_actions])
-        return action
+        actions_value = self.eval_net.forward(torch.FatalError(s).cuda())
+        return torch.argmax(actions_value, dim=1).cpu().numpy()
+        # action = np.argmax([actions_value[x] for x in avalible_actions])
+        # return action
         # torch.argmax()
         # action = torch.max(actions_value, 1)[1].cpu().data.numpy()[0]
         # return avalible_actions[np.array([qfunc["{}_{}".format(s, x)] for x in avalible_actions]).argmax()]
@@ -90,9 +91,10 @@ class DQN(object):
             self.target_net.load_state_dict(self.eval_net.state_dict())
         self.learn_step_counter += 1
         # q_eval w.r.t the action in experience
-        q_eval = self.eval_net(s).gather(1, b_a)  # shape (batch, 1)
+        # q_eval = self.eval_net(s).gather(1, b_a)  # shape (batch, 1)
+        q_eval = self.eval_net(s)
         q_next = self.target_net(b_s_).detach()  # detach from graph, don't backpropagate
-        q_target = b_r + GAMMA * q_next.max(1)[0].view(BATCH_SIZE, 1)  # shape (batch, 1)
+        q_target = r + gamma * q_next.max(1)[0].view(BATCH_SIZE, 1)  # shape (batch, 1)
         loss = self.loss_func(q_eval, q_target)
 
         self.optimizer.zero_grad()
@@ -106,23 +108,24 @@ for iter in range(100):
     counted = 0
 
 
+
     s_sample, a_sample, r_sample = [], [], []
     while not t and counted <100:
-        a = actions_all[display.index(epsilon_greedy(s, epsilon=0.1))] # 执行策略
+        a = actions_all[display.index(DQN.epsilon_greedy(s, epsilon=0.1))] # 执行策略
 
         # s_sample.append(s)
-        key_s = "{}_{}".format(s, display[np.apply_along_axis(np.array_equal, 1, actions_all, a).argmax()])
+        # key_s = "{}_{}".format(s, display[np.apply_along_axis(np.array_equal, 1, actions_all, a).argmax()])
 
         s1 = s + a
         r = REWARD[s1[0], s1[1]]
-        if over[s1[0], s1[1]] :
-            qfunc[key_s] = qfunc[key_s] + alpha*(r - qfunc[key_s])
-            t = True
-            break
-        a_ = actions_all[display.index(epsilon_greedy(s1, epsilon=0))] # 更新时在下一步中的a
+        # if over[s1[0], s1[1]] :
+        #     qfunc[key_s] = qfunc[key_s] + alpha*(r - qfunc[key_s])
+        #     t = True
+        #     break
+        # a_ = actions_all[display.index(epsilon_greedy(s1, epsilon=0))] # 更新时在下一步中的a
 
 
-        key_max = "{}_{}".format(s1, display[np.apply_along_axis(np.array_equal, 1, actions_all, a_).argmax()])
+        # key_max = "{}_{}".format(s1, display[np.apply_along_axis(np.array_equal, 1, actions_all, a_).argmax()])
         qfunc[key_s] = qfunc[key_s] + alpha*(r + gamma*qfunc[key_max] - qfunc[key_s])
         counted += 1
         s = s1
